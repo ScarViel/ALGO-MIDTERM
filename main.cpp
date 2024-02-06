@@ -3,6 +3,7 @@
 
 using namespace std;
 const int MAX_SIZE = 100;
+const int MAX_PROCESSES = 100;
 
 // Structure to represent a process
 struct Process {
@@ -26,7 +27,7 @@ struct Process {
 
 // Function to find the process with the highest priority at a given time
 int findHighestPriorityProcess(Process processes[], int n, int currentTime) {
-        int highestPriority = -1;
+    int highestPriority = -1;
     int selectedProcess = -1;
 
     for (int i = 0; i < n; ++i) {
@@ -37,40 +38,117 @@ int findHighestPriorityProcess(Process processes[], int n, int currentTime) {
             }
         }
     }
-
     return selectedProcess;
 }
 
 // Function to perform Priority Scheduling - Preemptive
-void priorityScheduling(Process processes[], int n, int currentTime, int completedProcesses = 0) {
-    int processIndex = findHighestPriorityProcess(processes, n, currentTime);
+void priorityScheduling(Process processes[], int n, ofstream& outputFile) {
+    int currentTime = 0;
+    int completedProcesses = 0;
+    int executedProcess[MAX_SIZE]; // Array to store executed process at each time
+    int executionTime[MAX_SIZE];   // Array to store the time at which each process is executed
 
-    if (processIndex != -1) {
-        processes[processIndex].remainingTime--;
-
-        if (processes[processIndex].remainingTime == 0) {
-            processes[processIndex].completed = true;
-            processes[processIndex].finishTime = currentTime + 1;
-            processes[processIndex].turnaroundTime = processes[processIndex].finishTime - processes[processIndex].arrivalTime;
-            processes[processIndex].waitingTime = processes[processIndex].turnaroundTime - processes[processIndex].burstTime;
-            completedProcesses++;
-        }
-
-        // Recursively call the function for the next time slot
-        priorityScheduling(processes, n, currentTime + 1, completedProcesses);
-    } else {
-        // No process to execute, move to the next time slot
-        currentTime++;
-
-        // Check if all processes are completed
-        if (completedProcesses == n) {
-            return;
-        }
-
-        // Continue scheduling for the next time slot
-        priorityScheduling(processes, n, currentTime, completedProcesses);
+    // Initialize arrays
+    for (int i = 0; i < MAX_SIZE; ++i) {
+        executedProcess[i] = -1;
+        executionTime[i] = -1;
     }
+
+    // Continue until all processes are completed
+    while (completedProcesses < n) {
+        int processIndex = findHighestPriorityProcess(processes, n, currentTime);
+
+        if (processIndex != -1) {
+            processes[processIndex].remainingTime--;
+
+            if (processes[processIndex].remainingTime == 0) {
+                processes[processIndex].completed = true;
+                processes[processIndex].finishTime = currentTime + 1;
+                processes[processIndex].turnaroundTime = processes[processIndex].finishTime - processes[processIndex].arrivalTime;
+                processes[processIndex].waitingTime = processes[processIndex].turnaroundTime - processes[processIndex].burstTime;
+                completedProcesses++;
+            }
+
+            // Store executed process and execution time
+            executedProcess[currentTime] = processIndex;
+            executionTime[currentTime] = currentTime;
+
+            // Move to the next time slot
+            currentTime++;
+        } else {
+            // No process to execute, move to the next arrival time
+            int nextArrivalTime = INT_MAX;
+            for (int i = 0; i < n; ++i) {
+                if (!processes[i].completed && processes[i].arrivalTime > currentTime && processes[i].arrivalTime < nextArrivalTime) {
+                    nextArrivalTime = processes[i].arrivalTime;
+                }
+            }
+            currentTime = nextArrivalTime;
+        }
+    }
+
+    // Declare an array to store the time slots
+    int timeSlots[MAX_SIZE];
+
+    // Initialize lastExecutionIndex to keep track of the index in the timeSlots array
+    int lastExecutionIndex = 0;
+
+    // Display Gantt Chart
+    outputFile << "\nGantt Chart:\n";
+    int lastExecutedProcess = -1;  // To keep track of the last executed process
+    int lastExecutionTime = -1;  // To keep track of the last execution time
+    for (int i = 0; i < MAX_SIZE; ++i) {
+        if (executedProcess[i] != -1 && executedProcess[i] != lastExecutedProcess) {
+            if (lastExecutionTime != -1) {
+                // Store the last execution time in the timeSlots array
+                timeSlots[lastExecutionIndex++] = lastExecutionTime;
+            }
+            outputFile << "|---P" << processes[executedProcess[i]].id << "---";
+            lastExecutedProcess = executedProcess[i];
+            lastExecutionTime = i;
+        }
+    }
+
+    // Store the last execution time in the timeSlots array
+    if (lastExecutionTime != -1) {
+        timeSlots[lastExecutionIndex++] = lastExecutionTime;
+    }
+
+    int lastProcessFinishTime = lastExecutionTime + processes[lastExecutedProcess].burstTime; // Calculate the completion time
+    timeSlots[lastExecutionIndex++] = lastProcessFinishTime;
+
+    // Display the processes
+    outputFile << "|" << endl;
+
+    // Display the time slots
+    for (int i = 0; i < lastExecutionIndex; ++i) {
+        int whiteSpace = timeSlots[i];
+        if (whiteSpace < 10) {
+            outputFile << timeSlots[i];
+            outputFile << "        "; // 8 white spaces
+        } else if (whiteSpace >= 10) {
+            outputFile << timeSlots[i];
+            outputFile << "       ";  // 7 white spaces
+        }
+    }
+    outputFile << endl;
 }
+
+// Function to write process details to a file
+void writeProcessDetailsToFile(Process processes[], int n, ofstream& outputFile) {
+    outputFile << "\nProcess Details:\n";
+    outputFile << "+----+---------------+---------------+--------------+-----------------+-------------------+----------------+\n";
+    outputFile << "| ID | Arrival Time  |   Burst Time  |   Priority   |   Finish Time   |  Turnaround Time  |  Waiting Time  |\n";
+    for (int i = 0; i < n; ++i) {
+        outputFile << "+----+---------------+---------------+--------------+-----------------+-------------------+----------------+\n";
+
+        outputFile << "|  " << processes[i].id << " |       " << processes[i].arrivalTime << "       |       " << processes[i].burstTime 
+             << "\t     |      " << processes[i].priority << "\t    |        " << processes[i].finishTime << "\t      |  \t" 
+             << processes[i].turnaroundTime << "\t  |\t   " << (processes[i].waitingTime < 0 ? 0 : processes[i].waitingTime) << "\t   |\n";
+    }
+    outputFile << "+----+---------------+---------------+--------------+-----------------+-------------------+----------------+\n";
+}
+
 ///////
 void srt(Process* p, int n, int time) {
     int done = 0;
@@ -120,7 +198,6 @@ void queueUpdationRecursive(int queue[], int timer, int arrival[], int n, int cu
         }
         queueUpdationRecursive(queue, timer, arrival, n, currentIndex + 1, maxProccessIndex);
     } else {
-        // Add the process with maxProccessIndex to the ready queue
         for (int i = 0; i < n; i++) {
             if (queue[i] == 0) {
                 queue[i] = maxProccessIndex + 1;
@@ -130,14 +207,12 @@ void queueUpdationRecursive(int queue[], int timer, int arrival[], int n, int cu
     }
 }
 
-// Function to check new arrival and update ready queue recursively
 void checkNewArrivalRecursive(int timer, int arrival[], int n, int maxProccessIndex, int queue[]) {
     if (timer <= arrival[n - 1]) {
         queueUpdationRecursive(queue, timer, arrival, n, maxProccessIndex + 1, maxProccessIndex);
     }
 }
 
-// Function to maintain the entries of processes after each preemption in the ready Queue recursively
 void queueMaintainenceRecursive(int queue[], int n, int currentIndex) {
     if (currentIndex < n - 1 && queue[currentIndex + 1] != 0) {
         int temp = queue[currentIndex];
@@ -146,10 +221,21 @@ void queueMaintainenceRecursive(int queue[], int n, int currentIndex) {
         queueMaintainenceRecursive(queue, n, currentIndex + 1);
     }
 }
+
+void displayGanttChart(int ganttChart[MAX_PROCESSES][2], int executionCount) {
+    cout << "\nGantt Chart:\n";
+    cout << "---------------------------------\n";
+    cout << "| Process ID | Execution Time   |\n";
+    cout << "---------------------------------\n";
+    for (int i = 0; i < executionCount; ++i) {
+        cout << "|     " << ganttChart[i][0] << "      |         " << ganttChart[i][1] << "         |\n";
+    }
+    cout << "---------------------------------\n";
+}
 ////////
 void SRTF()
 {
-    int n;
+   int n;
     cout << "Enter the number of processes: ";
     cin >> n;
 
@@ -178,21 +264,12 @@ void SRTF()
     }
 
     // Perform Priority Scheduling - Preemptive
-    cout << "\nGantt Chart:\n";
-    priorityScheduling(processes, n, 0);
+    ofstream outputFile("output.txt");
+    priorityScheduling(processes, n, outputFile);
+    writeProcessDetailsToFile(processes, n, outputFile);
+    outputFile.close();
 
-    // Display process details
-    cout << "\nProcess Details:\n";
-    cout << "+----+---------------+---------------+--------------+-----------------+-------------------+----------------+" << endl;
-    cout << "| ID | Arrival Time  |   Burst Time  |   Priority   |   Finish Time   |  Turnaround Time  |  Waiting Time  |\n";
-    for (int i = 0; i < n; ++i) {
-        cout << "+----+---------------+---------------+--------------+-----------------+-------------------+----------------+" << endl;
-
-        cout << "| " << processes[i].id << "  |       " << processes[i].arrivalTime << "       |       " << processes[i].burstTime 
-        << "       |      " << processes[i].priority << "       |        " << processes[i].finishTime << "\t      |\t        " 
-        << processes[i].turnaroundTime << "\t  |\t  " << (processes[i].waitingTime < 0 ? 0 : processes[i].waitingTime) << "\t   |" << endl;
-    }
-    cout << "+----+---------------+---------------+--------------+-----------------+-------------------+----------------+" << endl;
+    cout << "Process details and Gantt chart saved to output.txt\n";
 };
 //////////
 void PS()
@@ -214,7 +291,7 @@ void PS()
 //////////
 void RR()
 {
-     int n, tq, timer = 0, maxProccessIndex = 0;
+    int n, tq, timer = 0, maxProccessIndex = 0;
     float avgWait = 0, avgTT = 0;
     cout << "\nEnter the time quanta : ";
     cin >> tq;
@@ -226,20 +303,23 @@ void RR()
     cout << "\nEnter the arrival time of the processes : ";
     for (int i = 0; i < n; i++)
         cin >> arrival[i];
-
+    cin.ignore();
     cout << "\nEnter the burst time of the processes : ";
     for (int i = 0; i < n; i++) {
         cin >> burst[i];
         temp_burst[i] = burst[i];
     }
 
-    for (int i = 0; i < n; i++) { // Initializing the queue and complete array
+    for (int i = 0; i < n; i++) {
         complete[i] = false;
         queue[i] = 0;
     }
-    while (timer < arrival[0]) // Incrementing Timer until the first process arrives
+    while (timer < arrival[0])
         timer++;
     queue[0] = 1;
+
+    int ganttChart[MAX_PROCESSES][2]; // Process ID and Execution Time
+    int executionCount = 0;
 
     while (true) {
         bool flag = true;
@@ -259,18 +339,20 @@ void RR()
                 timer += 1;
                 ctr++;
 
-                // Recursively check and update the ready queue until all processes arrive
+                // Update Gantt chart
+                ganttChart[executionCount][0] = queue[0];
+                ganttChart[executionCount][1] = timer;
+                executionCount++;
+
                 checkNewArrivalRecursive(timer, arrival, n, maxProccessIndex, queue);
             }
 
-            // If a process is completed then store its exit time and mark it as completed
             if ((temp_burst[queue[0] - 1] == 0) && (complete[queue[0] - 1] == false)) {
-                // turn array currently stores the completion time
-                turn[queue[0] - 1] = timer;
+                // Corrected the calculation of turnaround time
+                turn[queue[0] - 1] = timer - arrival[queue[0] - 1];
                 complete[queue[0] - 1] = true;
             }
 
-            // Checks whether or not CPU is idle
             bool idle = true;
             if (queue[n - 1] == 0) {
                 for (int i = 0; i < n && queue[i] != 0; i++) {
@@ -286,13 +368,11 @@ void RR()
                 checkNewArrivalRecursive(timer, arrival, n, maxProccessIndex, queue);
             }
 
-            // Maintaining the entries of processes after each preemption in the ready Queue
             queueMaintainenceRecursive(queue, n, 0);
         }
     }
 
     for (int i = 0; i < n; i++) {
-        turn[i] = turn[i] - arrival[i];
         wait[i] = turn[i] - burst[i];
     }
 
@@ -309,7 +389,7 @@ void RR()
     cout << "\nAverage wait time : " << (avgWait / n)
          << "\nAverage Turn Around Time : " << (avgTT / n);
 
-    
+    displayGanttChart(ganttChart, executionCount);
     
 };
 
@@ -350,7 +430,3 @@ int main()
     }
 
 }
-
-
-
-
