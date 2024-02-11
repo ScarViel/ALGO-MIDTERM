@@ -1,4 +1,3 @@
-
 #include <iostream>
 
 using namespace std;
@@ -26,8 +25,9 @@ struct Process {
 
 
 // Function to find the process with the highest priority at a given time
+// Function to find the process with the highest priority at a given time
 int findHighestPriorityProcess(Process processes[], int n, int currentTime) {
-    int highestPriority = -1;
+        int highestPriority = -1;
     int selectedProcess = -1;
 
     for (int i = 0; i < n; ++i) {
@@ -38,117 +38,40 @@ int findHighestPriorityProcess(Process processes[], int n, int currentTime) {
             }
         }
     }
+
     return selectedProcess;
 }
 
 // Function to perform Priority Scheduling - Preemptive
-void priorityScheduling(Process processes[], int n, ofstream& outputFile) {
-    int currentTime = 0;
-    int completedProcesses = 0;
-    int executedProcess[MAX_SIZE]; // Array to store executed process at each time
-    int executionTime[MAX_SIZE];   // Array to store the time at which each process is executed
+void priorityScheduling(Process processes[], int n, int currentTime, int completedProcesses = 0) {
+    int processIndex = findHighestPriorityProcess(processes, n, currentTime);
 
-    // Initialize arrays
-    for (int i = 0; i < MAX_SIZE; ++i) {
-        executedProcess[i] = -1;
-        executionTime[i] = -1;
-    }
+    if (processIndex != -1) {
+        processes[processIndex].remainingTime--;
 
-    // Continue until all processes are completed
-    while (completedProcesses < n) {
-        int processIndex = findHighestPriorityProcess(processes, n, currentTime);
-
-        if (processIndex != -1) {
-            processes[processIndex].remainingTime--;
-
-            if (processes[processIndex].remainingTime == 0) {
-                processes[processIndex].completed = true;
-                processes[processIndex].finishTime = currentTime + 1;
-                processes[processIndex].turnaroundTime = processes[processIndex].finishTime - processes[processIndex].arrivalTime;
-                processes[processIndex].waitingTime = processes[processIndex].turnaroundTime - processes[processIndex].burstTime;
-                completedProcesses++;
-            }
-
-            // Store executed process and execution time
-            executedProcess[currentTime] = processIndex;
-            executionTime[currentTime] = currentTime;
-
-            // Move to the next time slot
-            currentTime++;
-        } else {
-            // No process to execute, move to the next arrival time
-            int nextArrivalTime = INT_MAX;
-            for (int i = 0; i < n; ++i) {
-                if (!processes[i].completed && processes[i].arrivalTime > currentTime && processes[i].arrivalTime < nextArrivalTime) {
-                    nextArrivalTime = processes[i].arrivalTime;
-                }
-            }
-            currentTime = nextArrivalTime;
+        if (processes[processIndex].remainingTime == 0) {
+            processes[processIndex].completed = true;
+            processes[processIndex].finishTime = currentTime + 1;
+            processes[processIndex].turnaroundTime = processes[processIndex].finishTime - processes[processIndex].arrivalTime;
+            processes[processIndex].waitingTime = processes[processIndex].turnaroundTime - processes[processIndex].burstTime;
+            completedProcesses++;
         }
-    }
 
-    // Declare an array to store the time slots
-    int timeSlots[MAX_SIZE];
+        // Recursively call the function for the next time slot
+        priorityScheduling(processes, n, currentTime + 1, completedProcesses);
+    } else {
+        // No process to execute, move to the next time slot
+        currentTime++;
 
-    // Initialize lastExecutionIndex to keep track of the index in the timeSlots array
-    int lastExecutionIndex = 0;
-
-    // Display Gantt Chart
-    outputFile << "\nGantt Chart:\n";
-    int lastExecutedProcess = -1;  // To keep track of the last executed process
-    int lastExecutionTime = -1;  // To keep track of the last execution time
-    for (int i = 0; i < MAX_SIZE; ++i) {
-        if (executedProcess[i] != -1 && executedProcess[i] != lastExecutedProcess) {
-            if (lastExecutionTime != -1) {
-                // Store the last execution time in the timeSlots array
-                timeSlots[lastExecutionIndex++] = lastExecutionTime;
-            }
-            outputFile << "|---P" << processes[executedProcess[i]].id << "---";
-            lastExecutedProcess = executedProcess[i];
-            lastExecutionTime = i;
+        // Check if all processes are completed
+        if (completedProcesses == n) {
+            return;
         }
+
+        // Continue scheduling for the next time slot
+        priorityScheduling(processes, n, currentTime, completedProcesses);
     }
-
-    // Store the last execution time in the timeSlots array
-    if (lastExecutionTime != -1) {
-        timeSlots[lastExecutionIndex++] = lastExecutionTime;
-    }
-
-    int lastProcessFinishTime = lastExecutionTime + processes[lastExecutedProcess].burstTime; // Calculate the completion time
-    timeSlots[lastExecutionIndex++] = lastProcessFinishTime;
-
-    // Display the processes
-    outputFile << "|" << endl;
-
-    // Display the time slots
-    for (int i = 0; i < lastExecutionIndex; ++i) {
-        int whiteSpace = timeSlots[i];
-        if (whiteSpace < 10) {
-            outputFile << timeSlots[i];
-            outputFile << "        "; // 8 white spaces
-        } else if (whiteSpace >= 10) {
-            outputFile << timeSlots[i];
-            outputFile << "       ";  // 7 white spaces
-        }
-    }
-    outputFile << endl;
 }
-
-// Function to write process details to a file
-void writeProcessDetailsToFile(Process processes[], int n, ofstream& outputFile) {
-    outputFile << "\nProcess Details:\n";
-    outputFile << "+----+---------------+---------------+--------------+-----------------+-------------------+----------------+\n";
-    outputFile << "| ID | Arrival Time  |   Burst Time  |   Priority   |   Finish Time   |  Turnaround Time  |  Waiting Time  |\n";
-    for (int i = 0; i < n; ++i) {
-        outputFile << "+----+---------------+---------------+--------------+-----------------+-------------------+----------------+\n";
-
-        outputFile << "|  " << processes[i].id << " |       " << processes[i].arrivalTime << "       |       " << processes[i].burstTime 
-             << "\t     |      " << processes[i].priority << "\t    |        " << processes[i].finishTime << "\t      |  \t" 
-             << processes[i].turnaroundTime << "\t  |\t   " << (processes[i].waitingTime < 0 ? 0 : processes[i].waitingTime) << "\t   |\n";
-    }
-    outputFile << "+----+---------------+---------------+--------------+-----------------+-------------------+----------------+\n";
-}
-
 ///////
 void srt(Process* p, int n, int time) {
     int done = 0;
@@ -235,6 +158,22 @@ void displayGanttChart(int ganttChart[MAX_PROCESSES][2], int executionCount) {
 ////////
 void SRTF()
 {
+   int num;
+	cout<< "Enter number of processes: "; cin >> num;
+	Process* process = new Process[num];
+	
+	for(int i = 0; i < num; i++){
+		process[i].proc = i +1;
+		cout << "\nP" << process[i].proc << " arrival time: "; cin >> process[i].arrival;
+		cout << "P" << process[i].proc << " burst time: "; cin >> process[i].burst;
+		process[i].remain = process[i].burst;
+	}
+	
+	srt(process, num, 0);
+};
+//////////
+void PS()
+{
    int n;
     cout << "Enter the number of processes: ";
     cin >> n;
@@ -264,29 +203,21 @@ void SRTF()
     }
 
     // Perform Priority Scheduling - Preemptive
-    ofstream outputFile("output.txt");
-    priorityScheduling(processes, n, outputFile);
-    writeProcessDetailsToFile(processes, n, outputFile);
-    outputFile.close();
+    cout << "\nGantt Chart:\n";
+    priorityScheduling(processes, n, 0);
 
-    cout << "Process details and Gantt chart saved to output.txt\n";
-};
-//////////
-void PS()
-{
-   int num;
-	cout<< "Enter number of processes: "; cin >> num;
-	Process* process = new Process[num];
-	
-	for(int i = 0; i < num; i++){
-		process[i].proc = i +1;
-		cout << "\nP" << process[i].proc << " arrival time: "; cin >> process[i].arrival;
-		cout << "P" << process[i].proc << " burst time: "; cin >> process[i].burst;
-		process[i].remain = process[i].burst;
-	}
-	
-	srt(process, num, 0); 
-    
+    // Display process details
+    cout << "\nProcess Details:\n";
+    cout << "+----+---------------+---------------+--------------+-----------------+-------------------+----------------+" << endl;
+    cout << "| ID | Arrival Time  |   Burst Time  |   Priority   |   Finish Time   |  Turnaround Time  |  Waiting Time  |\n";
+    for (int i = 0; i < n; ++i) {
+        cout << "+----+---------------+---------------+--------------+-----------------+-------------------+----------------+" << endl;
+
+        cout << "| " << processes[i].id << "  |       " << processes[i].arrivalTime << "       |       " << processes[i].burstTime 
+        << "       |      " << processes[i].priority << "       |        " << processes[i].finishTime << "\t      |\t        " 
+        << processes[i].turnaroundTime << "\t  |\t  " << (processes[i].waitingTime < 0 ? 0 : processes[i].waitingTime) << "\t   |" << endl;
+    }
+    cout << "+----+---------------+---------------+--------------+-----------------+-------------------+----------------+" << endl;
 };
 //////////
 void RR()
@@ -406,7 +337,8 @@ int main()
             cout<<"\t[1]:Shortest Remaining Time First"<<endl;
             cout<<"\t[2]:Prioty Scheduling"<<endl;
             cout<<"\t[3]:Round Robin"<<endl;
-            cout<<"\t[4:Exit\n\t";
+            cout<<"\t[4:Exit\n";
+            cout<<"\tChoice:";
             cin>>choice;
             switch(choice)
             {
